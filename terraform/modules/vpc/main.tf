@@ -58,3 +58,16 @@ resource "aws_subnet" "private" {
     }
   )
 }
+
+resource "aws_eip" "nat" {
+  count = length(var.public_subnets)
+
+  domain = "vpc"
+
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.project_name}-${var.environment}-eip-${count.index + 1}"
+    }
+  )
+}
