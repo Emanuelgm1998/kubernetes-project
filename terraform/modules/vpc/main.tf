@@ -113,3 +113,18 @@ resource "aws_nat_gateway" "this" {
     }
   )
 }
+
+##############################################################
+# Public Route Table
+##############################################################
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(
+    var.common_tags,
+    {
+      Name = "${var.project_name}-${var.environment}-public-rt"
+    }
+  )
+}
