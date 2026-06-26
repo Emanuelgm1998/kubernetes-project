@@ -1,3 +1,7 @@
+##############################################################
+# VPC
+##############################################################
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = var.enable_dns_support
@@ -11,6 +15,10 @@ resource "aws_vpc" "this" {
   )
 }
 
+##############################################################
+# Internet Gateway
+##############################################################
+
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
@@ -21,6 +29,10 @@ resource "aws_internet_gateway" "this" {
     }
   )
 }
+
+##############################################################
+# Public Subnets
+##############################################################
 
 resource "aws_subnet" "public" {
   count = length(var.public_subnets)
@@ -41,6 +53,10 @@ resource "aws_subnet" "public" {
   )
 }
 
+##############################################################
+# Private Subnets
+##############################################################
+
 resource "aws_subnet" "private" {
   count = length(var.private_subnets)
 
@@ -59,6 +75,10 @@ resource "aws_subnet" "private" {
   )
 }
 
+##############################################################
+# Elastic IPs
+##############################################################
+
 resource "aws_eip" "nat" {
   count = length(var.public_subnets)
 
@@ -71,6 +91,10 @@ resource "aws_eip" "nat" {
     }
   )
 }
+
+##############################################################
+# NAT Gateways
+##############################################################
 
 resource "aws_nat_gateway" "this" {
   count = length(var.public_subnets)
