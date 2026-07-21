@@ -51,6 +51,13 @@ The Security CI failure was not a security finding. Its annotation reported an u
 
 The next Trivy execution produced three HIGH hardening findings. They were resolved by using customer-managed KMS keys for S3 state and EKS Secret envelope encryption, and by disabling automatic public IP assignment in public subnets. A local Trivy `v0.70.0` rescan with the workflow's `HIGH,CRITICAL` threshold reported zero failures before publication.
 
+Final remediation commit `9b305fb9392120cbe230a574bd34d2865e70908a` completed both required checks successfully:
+
+| Workflow | Result | Evidence |
+|---|---|---|
+| Terraform CI | Success | [Run 29827208263](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208263) |
+| Security CI | Success | [Run 29827208177](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208177) |
+
 ## Deployment boundary
 
 The remote S3 backend does not yet exist. Creating it is the next infrastructure phase and requires separate explicit approval. The real IAM Identity Center role must be identified before setting `ADMIN_ROLE_ARN`; documentation placeholders are not deployable values.

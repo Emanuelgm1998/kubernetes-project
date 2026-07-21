@@ -137,15 +137,19 @@ Follow [the destroy runbook](docs/operations/destroy-guide.md); do not treat `te
 
 | Evidence | Status |
 |---|---|
-| Terraform formatting | Local validation available |
-| Terraform initialization/validation | Passed locally for bootstrap and dev stacks |
-| Kustomize render | Validated locally |
-| Helm render | Enforced in CI; local repository access required |
+| Terraform formatting | Passed locally and in [Terraform CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208263) |
+| Terraform initialization/validation | Passed for bootstrap and dev stacks in [Terraform CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208263) |
+| Kustomize and Helm rendering | Passed locally and in [Platform Manifests CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29826419752) |
+| Secret detection and IaC security | Gitleaks and Trivy passed in [Security CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208177) |
+| AWS Load Balancer Controller policy | Exact normalized match with upstream `v3.4.2` policy |
 | AWS identity and regional compatibility | Verified read-only on 2026-07-21 |
-| AWS plan | Pending remote-state bootstrap and review |
+| Sensitive artifact protection | Ignore rules and Git index verified; no credentials or private keys detected |
+| AWS plan | Pending remote-state bootstrap and separate approval |
 | EKS, nodes, IRSA and add-ons | Pending AWS deployment |
 | ArgoCD sync and ALB | Pending cluster deployment |
 | Destruction/recovery | Pending controlled exercise |
+
+The validated remediation baseline is commit `9b305fb9392120cbe230a574bd34d2865e70908a`. Full commands, findings and run links are recorded in [the hardening publication evidence](docs/evidence/2026-07-21-hardening-publication.md). “Passed” refers to source, render and CI validation; it does not claim runtime AWS evidence before an explicitly approved deployment.
 
 ## Interview focus
 
