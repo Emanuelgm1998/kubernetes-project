@@ -154,3 +154,11 @@ The validated remediation baseline is commit `9b305fb9392120cbe230a574bd34d2865e
 ## Interview focus
 
 The key trade-offs are documented rather than hidden: shared NAT versus zonal resilience, private versus public control-plane access, IRSA boundaries, GitOps bootstrap sequencing, optional cost controls and the lifecycle of Kubernetes-created AWS resources. See [interview talking points](docs/interview/talking-points.md).
+
+## Author
+
+Emanuel González Michea — [LinkedIn](https://www.linkedin.com/in/emanuel-gonzalez-michea/)
+
+## License
+
+This project is available under the [MIT License](LICENSE).
