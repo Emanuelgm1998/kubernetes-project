@@ -1,0 +1,38 @@
+flowchart TD
+  Dev[Developer Workstation] --> GitHub[GitHub Repository]
+  GitHub --> TF[Terraform]
+  TF --> AWS[AWS Account]
+
+  subgraph AWS[AWS]
+    VPC[VPC]
+    ECR[ECR Repository]
+    EKS[EKS Cluster]
+    WAF[AWS WAF]
+    CW[CloudWatch]
+    IAM[IAM + IRSA]
+  end
+
+  subgraph VPC[VPC Multi-AZ]
+    PubA[Public Subnet A]
+    PubB[Public Subnet B]
+    PrivA[Private Subnet A]
+    PrivB[Private Subnet B]
+    NAT[NAT Gateway]
+    IGW[Internet Gateway]
+  end
+
+  subgraph EKS[EKS]
+    SystemNG[System Node Group]
+    AppNG[Application Node Group]
+    ArgoCD[ArgoCD]
+    LBC[AWS Load Balancer Controller]
+    App[Demo App]
+  end
+
+  GitHub --> ArgoCD
+  ArgoCD --> App
+  ECR --> App
+  App --> LBC
+  LBC --> WAF
+  EKS --> CW
+  IAM --> EKS

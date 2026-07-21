@@ -1,0 +1,31 @@
+aws_region      = "us-east-1"
+project_name    = "kubernetes-platform"
+environment     = "dev"
+vpc_cidr        = "10.40.0.0/16"
+
+availability_zones = [
+  "us-east-1a",
+  "us-east-1b"
+]
+
+public_subnets = [
+  "10.40.1.0/24",
+  "10.40.2.0/24"
+]
+
+private_subnets = [
+  "10.40.16.0/22",
+  "10.40.20.0/22"
+]
+
+eks_cluster_version       = "1.31"
+enable_multi_nat_gateway  = false
+enable_eks_public_endpoint = false
+enable_waf                 = false
+
+# When enabling the public endpoint, replace with trusted operator IPs /32.
+allowed_api_cidrs = []
+
+external_secrets_resource_arns = [
+  "arn:aws:secretsmanager:us-east-1:*:secret:kubernetes-platform/dev/*"
+]

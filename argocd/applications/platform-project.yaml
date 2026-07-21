@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kubernetes-platform
+  namespace: argocd
+spec:
+  description: Restricted project for the EKS portfolio platform
+  sourceRepos:
+    - https://github.com/Emanuelgm1998/kubernetes-project.git
+    - https://kubernetes-sigs.github.io/metrics-server/
+  destinations:
+    - namespace: apps
+      server: https://kubernetes.default.svc
+    - namespace: kube-system
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

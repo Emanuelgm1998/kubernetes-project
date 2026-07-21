@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - base/namespaces/namespaces.yaml
+  - base/rbac/read-only-role.yaml
+  - security/default-deny-network-policy.yaml
+  - apps/demo-app
