@@ -11,7 +11,8 @@ flowchart LR
   developer[Operator] --> github[GitHub]
   github --> ci[GitHub Actions validation]
   github --> argocd[ArgoCD]
-  terraform[Terraform] --> aws
+  terraform[Terraform] --> state[S3 remote state\nversioning and lockfile]
+  terraform --> aws
 
   subgraph aws[AWS account]
     subgraph vpc[Multi-AZ VPC]
@@ -33,14 +34,15 @@ flowchart LR
   eks --> logs
   argocd --> eks
   eks --> alb[AWS Load Balancer Controller]
-  alb --> waf
+  waf -. optional public association .-> alb
 ```
 
-The development defaults use two Availability Zones, private managed node groups, one shared NAT Gateway for cost control, a private EKS API endpoint and an internal ALB. Public access, WAF and higher availability NAT are explicit opt-ins.
+The development defaults use EKS 1.35 in standard support, two Availability Zones, private managed node groups, one shared NAT Gateway for cost control, a private EKS API endpoint and an internal ALB. Public access, WAF and higher availability NAT are explicit opt-ins.
 
 ## Repository layout
 
 ```text
+terraform/bootstrap/state/     Protected S3 remote-state bootstrap
 terraform/environments/dev/    Environment composition and provider lock
 terraform/modules/             VPC, ECR, EKS, IRSA and WAF modules
 kubernetes/base/               Namespaces and RBAC
@@ -59,7 +61,9 @@ docs/                          Architecture, security and runbooks
 
 - EKS nodes in private subnets and private API access by default.
 - All EKS control-plane log types with bounded CloudWatch retention.
-- IRSA trust policies bound to exact namespace/service-account subjects.
+- IRSA trust policies bound to exact namespace/service-account subjects, including VPC CNI.
+- Explicit EKS Access Entry for an IAM role; implicit creator administration is disabled.
+- IMDSv2-only nodes with a hop limit of one and encrypted gp3 root volumes.
 - Scoped Secrets Manager access for External Secrets.
 - Dedicated EBS CSI role and managed add-on integration.
 - ECR scan-on-push, immutable tags and lifecycle policy.
@@ -82,11 +86,15 @@ The validation workflow does not run `terraform plan`, contact AWS or create inf
 
 ## Future AWS validation
 
-Before planning, create a local `terraform.tfvars` from the non-sensitive example and replace all account-specific settings. Never commit the resulting file.
+Before planning, bootstrap the protected state bucket once, create the ignored `backend.hcl`, then create `terraform.tfvars`. Retain the small local bootstrap state securely.
 
 ```bash
-cp terraform/environments/dev/terraform.tfvars.example \
-  terraform/environments/dev/terraform.tfvars
+terraform -chdir=terraform/bootstrap/state init
+terraform -chdir=terraform/bootstrap/state plan -out=tfplan
+# Apply requires explicit approval.
+
+cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
+cp terraform/environments/dev/terraform.tfvars.example terraform/environments/dev/terraform.tfvars
 ./scripts/01-terraform-init-plan.sh
 terraform -chdir=terraform/environments/dev show tfplan
 ```
@@ -105,7 +113,7 @@ These commands are documented for a future authorized session. They were not exe
 
 - No static AWS or GitHub credentials belong in Git.
 - Prefer AWS IAM Identity Center for operators and GitHub OIDC for future automation.
-- Keep the public EKS endpoint disabled unless trusted `/32` CIDRs are supplied.
+- Keep the public EKS endpoint disabled unless trusted `/32` CIDRs are supplied; a private endpoint requires an approved private network path.
 - Public ingress requires a separate reviewed configuration with ACM TLS, HTTPS redirect and WAF association.
 - Terraform plan and state files are ignored because they may contain sensitive values.
 
@@ -115,7 +123,7 @@ See [security design](docs/security/security-design.md) and [deployment guide](d
 
 The cluster is intended for short-lived portfolio validation. The main cost drivers are EKS control-plane hours, EC2 nodes, NAT Gateway hours/data, ALB hours/capacity, WAF, EBS and logs. WAF is disabled and Grafana is not installed by default; the dev topology starts with two `t3.medium` nodes total.
 
-Before deployment, create a dated estimate using AWS Pricing Calculator and verify the selected Kubernetes version is in standard EKS support. See [cost control](docs/operations/cost-control.md).
+Before deployment, create a dated estimate using AWS Pricing Calculator and verify the selected Kubernetes version is in standard EKS support. EKS 1.35 was confirmed in standard support in `us-east-1` on 2026-07-21. See [cost control](docs/operations/cost-control.md).
 
 ## Destruction
 
@@ -128,10 +136,11 @@ Follow [the destroy runbook](docs/operations/destroy-guide.md); do not treat `te
 | Evidence | Status |
 |---|---|
 | Terraform formatting | Local validation available |
-| Terraform initialization/validation | Must be rerun with healthy local providers |
+| Terraform initialization/validation | Passed locally for bootstrap and dev stacks |
 | Kustomize render | Validated locally |
 | Helm render | Enforced in CI; local repository access required |
-| AWS plan | Pending credentials and authorization |
+| AWS identity and regional compatibility | Verified read-only on 2026-07-21 |
+| AWS plan | Pending remote-state bootstrap and review |
 | EKS, nodes, IRSA and add-ons | Pending AWS deployment |
 | ArgoCD sync and ALB | Pending cluster deployment |
 | Destruction/recovery | Pending controlled exercise |

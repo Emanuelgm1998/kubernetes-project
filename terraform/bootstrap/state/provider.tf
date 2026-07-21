@@ -6,11 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.100"
     }
-
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.3"
-    }
   }
 }
 
@@ -18,7 +13,11 @@ provider "aws" {
   region = var.aws_region
 
   default_tags {
-    tags = local.common_tags
+    tags = {
+      Project   = var.project_name
+      ManagedBy = "Terraform"
+      Purpose   = "TerraformState"
+    }
   }
 }
 

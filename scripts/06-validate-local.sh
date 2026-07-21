@@ -4,7 +4,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 terraform fmt -check -recursive "$REPO_ROOT/terraform"
-terraform -chdir="$REPO_ROOT/terraform/environments/dev" init -backend=false -input=false
+terraform -chdir="$REPO_ROOT/terraform/bootstrap/state" init -backend=false -input=false
+terraform -chdir="$REPO_ROOT/terraform/bootstrap/state" validate
+terraform -chdir="$REPO_ROOT/terraform/environments/dev" init -backend=false -input=false -reconfigure
 terraform -chdir="$REPO_ROOT/terraform/environments/dev" validate
 
 kubectl kustomize "$REPO_ROOT/kubernetes" >/dev/null

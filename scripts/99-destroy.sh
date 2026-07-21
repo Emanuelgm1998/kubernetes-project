@@ -11,4 +11,13 @@ if [ "$confirm" != "yes" ]; then
 fi
 
 cd "$(dirname "$0")/../terraform/environments/dev"
-terraform destroy
+terraform plan -destroy -input=false -out=destroy.tfplan
+terraform show destroy.tfplan
+
+read -r -p "Apply the reviewed destroy plan? (yes/no): " apply_confirm
+if [ "$apply_confirm" != "yes" ]; then
+  echo "Destroy plan retained for review; no resources were changed."
+  exit 1
+fi
+
+terraform apply destroy.tfplan

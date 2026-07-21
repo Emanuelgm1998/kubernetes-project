@@ -13,11 +13,6 @@ variable "cluster_version" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "VPC ID."
-  type        = string
-}
-
 variable "private_subnet_ids" {
   description = "Private subnet IDs for EKS and node groups."
   type        = list(string)
@@ -33,6 +28,11 @@ variable "endpoint_public_access" {
   description = "Enable the EKS public API endpoint."
   type        = bool
   default     = false
+}
+
+variable "cluster_admin_principal_arn" {
+  description = "IAM role ARN granted explicit cluster-admin access through the EKS access API."
+  type        = string
 }
 
 variable "common_tags" {

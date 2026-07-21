@@ -10,7 +10,8 @@ This project implements a secure Kubernetes platform on AWS.
 - Amazon EKS managed control plane.
 - Managed node groups for system and application workloads.
 - Amazon ECR for container images.
-- IAM roles and IRSA for pod-level AWS permissions.
+- IAM roles, explicit EKS Access Entries and IRSA for pod-level AWS permissions.
+- Versioned and encrypted S3 remote state with native lockfiles.
 - AWS Load Balancer Controller for ALB provisioning.
 - ArgoCD for GitOps.
 - CloudWatch for control plane logs.
@@ -26,3 +27,4 @@ The infrastructure is intended to be deployed temporarily for validation and por
 - Private subnets route to NAT Gateway.
 - EKS nodes run in private subnets.
 - ALB is created by AWS Load Balancer Controller from Kubernetes Ingress.
+- Internal ALB addresses come from private subnets; the workload NetworkPolicy accepts only VPC source addresses.

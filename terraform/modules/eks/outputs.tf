@@ -18,9 +18,19 @@ output "cluster_oidc_issuer_url" {
   value       = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
 
+output "oidc_provider_arn" {
+  description = "EKS IAM OIDC provider ARN."
+  value       = aws_iam_openid_connect_provider.eks.arn
+}
+
+output "vpc_cni_role_arn" {
+  description = "IAM role ARN for the VPC CNI add-on."
+  value       = aws_iam_role.vpc_cni.arn
+}
+
 output "cluster_security_group_id" {
-  description = "EKS cluster security group ID."
-  value       = aws_security_group.cluster.id
+  description = "EKS-managed cluster security group ID."
+  value       = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }
 
 output "node_role_arn" {

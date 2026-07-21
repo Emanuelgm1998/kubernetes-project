@@ -1,6 +1,6 @@
 output "oidc_provider_arn" {
   description = "EKS OIDC provider ARN."
-  value       = aws_iam_openid_connect_provider.eks.arn
+  value       = var.oidc_provider_arn
 }
 
 output "aws_load_balancer_controller_role_arn" {

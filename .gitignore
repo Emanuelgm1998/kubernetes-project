@@ -26,6 +26,7 @@ kubeconfig-*
 aws-credentials*
 *.auto.tfvars
 terraform.tfvars
+backend.hcl
 
 # OS / editor
 .DS_Store

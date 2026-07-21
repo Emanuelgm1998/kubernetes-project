@@ -14,7 +14,9 @@
 
 Operators should use IAM Identity Center/SSO. Future GitHub deployment automation must use GitHub OIDC with repository, branch/environment and audience conditions; permanent access keys are prohibited.
 
-IRSA roles bind both `sub` and `aud` claims. External Secrets is restricted to configured Secrets Manager ARNs. EBS CSI uses the AWS-managed driver policy. The Load Balancer Controller policy uses controller ownership tags to constrain mutating operations.
+IRSA roles bind both `sub` and `aud` claims. VPC CNI permissions are removed from the node role. External Secrets is restricted to the current account and project/environment prefix. EBS CSI uses the AWS-managed driver policy. The Load Balancer Controller policy uses controller ownership tags to constrain mutating operations.
+
+EKS administration is granted to one explicit IAM role through an Access Entry. Bootstrap creator administration and legacy `aws-auth` management are disabled. Nodes require IMDSv2, use a metadata hop limit of one and have encrypted gp3 root volumes.
 
 ## Network controls
 
@@ -49,7 +51,7 @@ Grafana is disabled by default. If enabled, its administrator secret must come f
 |---|---|---|
 | Stolen static cloud key | No CI keys; SSO guidance | Configure GitHub OIDC before deployment automation |
 | Exposed Kubernetes API | Private by default; `/0` rejected | Private operator connectivity |
-| Pod obtains broad AWS access | Per-controller IRSA | Split VPC CNI permission from node bootstrap |
+| Pod obtains broad AWS access | Per-controller IRSA including VPC CNI; IMDS hop limit 1 | Add runtime identity tests after deployment |
 | Malicious image/tag replacement | ECR immutable tags | Digest pinning, signature verification and SBOM |
 | Internet attack on workload | Internal ALB, NetworkPolicy | Public TLS/WAF overlay and runtime evidence |
 | GitOps privilege escalation | Restricted AppProject | Separate platform/application projects for larger environments |
@@ -58,4 +60,4 @@ Grafana is disabled by default. If enabled, its administrator secret must come f
 
 ## Logging and response
 
-All EKS control-plane log types are enabled with seven-day retention for dev. A production design needs centralized immutable retention, alerting, CloudTrail integration and a documented incident-response owner. No claim of operational detection coverage is made until validated in AWS.
+All EKS control-plane log types are enabled with seven-day retention for dev. A production design needs centralized immutable retention, alerting, CloudTrail integration and a documented incident-response owner. WAF is not effective until its ACL is associated with a public ALB. No claim of operational detection coverage is made until validated in AWS.

@@ -1,21 +1,3 @@
-data "tls_certificate" "eks" {
-  url = var.oidc_issuer_url
-}
-
-resource "aws_iam_openid_connect_provider" "eks" {
-  url = var.oidc_issuer_url
-
-  client_id_list = [
-    "sts.amazonaws.com"
-  ]
-
-  thumbprint_list = [
-    data.tls_certificate.eks.certificates[0].sha1_fingerprint
-  ]
-
-  tags = var.common_tags
-}
-
 locals {
   oidc_provider_url_without_scheme = replace(var.oidc_issuer_url, "https://", "")
 }
@@ -26,7 +8,7 @@ data "aws_iam_policy_document" "load_balancer_controller_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+      identifiers = [var.oidc_provider_arn]
     }
 
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -70,7 +52,7 @@ data "aws_iam_policy_document" "external_secrets_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+      identifiers = [var.oidc_provider_arn]
     }
 
     actions = ["sts:AssumeRoleWithWebIdentity"]
@@ -123,7 +105,7 @@ data "aws_iam_policy_document" "ebs_csi_assume_role" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+      identifiers = [var.oidc_provider_arn]
     }
 
     condition {

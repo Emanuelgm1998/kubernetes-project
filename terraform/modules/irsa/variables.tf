@@ -18,8 +18,8 @@ variable "oidc_issuer_url" {
   type        = string
 }
 
-variable "aws_region" {
-  description = "AWS region."
+variable "oidc_provider_arn" {
+  description = "Existing IAM OIDC provider ARN for the EKS cluster."
   type        = string
 }
 

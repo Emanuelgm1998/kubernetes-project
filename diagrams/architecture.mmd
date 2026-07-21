@@ -1,6 +1,7 @@
 flowchart TD
   Dev[Developer Workstation] --> GitHub[GitHub Repository]
   GitHub --> TF[Terraform]
+  TF --> State[S3 Remote State]
   TF --> AWS[AWS Account]
 
   subgraph AWS[AWS]
@@ -33,6 +34,6 @@ flowchart TD
   ArgoCD --> App
   ECR --> App
   App --> LBC
-  LBC --> WAF
+  WAF -. Optional public ALB association .-> LBC
   EKS --> CW
   IAM --> EKS

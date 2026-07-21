@@ -23,6 +23,7 @@ jobs:
   terraform:
     name: Terraform Format and Validate
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     defaults:
       run:
@@ -42,7 +43,15 @@ jobs:
         run: terraform fmt -recursive -check terraform
 
       - name: Terraform Init
+        working-directory: terraform/bootstrap/state
         run: terraform init -backend=false -input=false
 
-      - name: Terraform Validate
+      - name: Terraform Validate State Bootstrap
+        working-directory: terraform/bootstrap/state
+        run: terraform validate
+
+      - name: Terraform Init Environment
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform Validate Environment
         run: terraform validate

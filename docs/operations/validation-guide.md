@@ -11,6 +11,7 @@ Run:
 Expected checks:
 
 - Terraform formatting and validation;
+- state-bootstrap formatting and validation;
 - Kustomize rendering for the platform and ArgoCD applications;
 - ShellCheck and Yamllint when installed;
 - Git whitespace validation.
@@ -21,13 +22,15 @@ No local validation proves that an AWS API accepts the configuration. Provider i
 
 Prerequisites:
 
-1. Authorized AWS account and operator identity.
+1. Authorized AWS account and an IAM role selected for the EKS Access Entry.
 2. Dated AWS Pricing Calculator estimate.
 3. Supported EKS and add-on versions verified in the target region.
 4. Trusted operator network path or explicit `/32` API CIDR.
 5. Reviewed Secrets Manager ARN boundary.
 
-Create and inspect a saved plan:
+As of the 2026-07-21 read-only audit, the expected state bucket, EKS cluster, ECR repository and project-tagged VPC did not exist, so there were no naming collisions and no pre-existing infrastructure to import.
+
+Bootstrap and configure the S3 backend as described in `deployment-guide.md`, then create and inspect a saved environment plan:
 
 ```bash
 ./scripts/01-terraform-init-plan.sh

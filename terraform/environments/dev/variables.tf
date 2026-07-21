@@ -53,7 +53,17 @@ variable "private_subnets" {
 variable "eks_cluster_version" {
   description = "Amazon EKS Kubernetes version."
   type        = string
-  default     = "1.31"
+  default     = "1.35"
+}
+
+variable "cluster_admin_principal_arn" {
+  description = "IAM Identity Center role ARN or IAM role ARN granted EKS cluster-admin access."
+  type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:role/.+", var.cluster_admin_principal_arn))
+    error_message = "cluster_admin_principal_arn must be an IAM role ARN."
+  }
 }
 
 variable "enable_multi_nat_gateway" {
@@ -83,10 +93,4 @@ variable "enable_waf" {
   description = "Create the regional WAF Web ACL. Disabled by default to control portfolio costs."
   type        = bool
   default     = false
-}
-
-variable "external_secrets_resource_arns" {
-  description = "Secrets Manager ARNs that External Secrets may read. Wildcards should be restricted to an application prefix."
-  type        = list(string)
-  default     = ["arn:aws:secretsmanager:us-east-1:*:secret:kubernetes-platform/dev/*"]
 }

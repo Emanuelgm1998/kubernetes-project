@@ -9,7 +9,49 @@ This runbook is for a future authorized AWS validation. Local hardening does not
 - Verify EKS and add-on version support in the target region.
 - Create and approve a dated cost estimate and cleanup window.
 - For public API access, use only trusted operator `/32` CIDRs.
-- Set `external_secrets_resource_arns` to an account-specific application prefix.
+- Confirm the generated External Secrets boundary matches `<project>/<environment>/*` in the target account.
+- Select an IAM role ARN for `cluster_admin_principal_arn`; IAM user ARNs are rejected.
+
+The audited account did not contain a suitable IAM/Identity Center role on 2026-07-21. Provisioning that operator role is an account-governance prerequisite and is intentionally outside this workload stack. Do not substitute the current IAM user ARN.
+
+After creating or identifying the real IAM Identity Center role, export its complete ARN on one line. There must be no newline after `role/`:
+
+```bash
+export ADMIN_ROLE_ARN="arn:aws:iam::747747309806:role/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
+```
+
+`REPLACE_ME` is documentation-only and must be replaced with the real role suffix before planning. Confirm the resolved value:
+
+```bash
+case "$ADMIN_ROLE_ARN" in
+  *REPLACE_ME*) echo "ADMIN_ROLE_ARN still contains REPLACE_ME" >&2; exit 1 ;;
+esac
+printf '%s\n' "$ADMIN_ROLE_ARN"
+aws iam get-role --role-name "${ADMIN_ROLE_ARN##*/}" --query 'Role.Arn' --output text
+```
+
+## Bootstrap remote state once
+
+This is a separate, explicitly approved apply. It creates only the protected state bucket. Its local state is sensitive and must be backed up securely.
+
+```bash
+terraform -chdir=terraform/bootstrap/state init
+terraform -chdir=terraform/bootstrap/state fmt -check
+terraform -chdir=terraform/bootstrap/state validate
+terraform -chdir=terraform/bootstrap/state plan -out=tfplan
+terraform -chdir=terraform/bootstrap/state show tfplan
+# After explicit approval only:
+terraform -chdir=terraform/bootstrap/state apply tfplan
+```
+
+Create the ignored backend configuration using the output:
+
+```bash
+cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
+terraform -chdir=terraform/bootstrap/state output -raw state_bucket_name
+```
+
+Replace `REPLACE_WITH_TERRAFORM_STATE_BUCKET` in `backend.hcl` with that output.
 
 ## Configure the environment
 
@@ -19,6 +61,8 @@ cp terraform/environments/dev/terraform.tfvars.example \
 ```
 
 Review the new local file. It is ignored by Git.
+
+Set `cluster_admin_principal_arn` to an existing IAM role. If the API endpoint remains private, run the Kubernetes bootstrap from an approved network path into the VPC. For a short-lived workstation deployment without private connectivity, explicitly enable the public endpoint and restrict it to the operator's public `/32`.
 
 ## Initialize, validate and save the plan
 
@@ -67,5 +111,6 @@ The bootstrap reads Terraform outputs for VPC and IRSA identifiers. It does not 
 - ArgoCD applications are synchronized and healthy.
 - HPA reports CPU metrics.
 - Ingress is internal unless a separately reviewed public TLS overlay is active.
+- If WAF is enabled, its Web ACL ARN is associated with the public ALB; merely creating an ACL provides no protection.
 
 Record evidence using the checklist in `validation-guide.md` and proceed to destruction within the approved cost window.

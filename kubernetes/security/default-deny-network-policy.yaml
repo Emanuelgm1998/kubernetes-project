@@ -23,9 +23,9 @@ spec:
   ingress:
     - from:
         - ipBlock:
-            cidr: 10.40.1.0/24
-        - ipBlock:
-            cidr: 10.40.2.0/24
+            # The internal ALB uses private VPC addresses. Security groups remain
+            # the primary ALB boundary; this policy prevents non-VPC ingress.
+            cidr: 10.40.0.0/16
       ports:
         - protocol: TCP
           port: 8080

@@ -6,6 +6,4 @@ locals {
     Owner       = "Emanuel Gonzalez"
     Purpose     = "Portfolio"
   }
-
-  name_prefix = "${var.project_name}-${var.environment}"
 }

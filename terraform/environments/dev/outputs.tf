@@ -52,3 +52,8 @@ output "ebs_csi_role_arn" {
   description = "IAM role ARN for the EBS CSI controller."
   value       = module.irsa.ebs_csi_role_arn
 }
+
+output "vpc_cni_role_arn" {
+  description = "IAM role ARN for the VPC CNI add-on."
+  value       = module.eks.vpc_cni_role_arn
+}
