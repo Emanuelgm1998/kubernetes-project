@@ -37,3 +37,8 @@ output "node_role_arn" {
   description = "Node IAM role ARN."
   value       = aws_iam_role.node.arn
 }
+
+output "secrets_kms_key_arn" {
+  description = "KMS key ARN used for EKS secret envelope encryption."
+  value       = aws_kms_key.eks_secrets.arn
+}

@@ -30,6 +30,19 @@ resource "aws_cloudwatch_log_group" "cluster" {
   tags = var.common_tags
 }
 
+resource "aws_kms_key" "eks_secrets" {
+  description             = "KMS key for ${var.project_name}-${var.environment} EKS secret envelope encryption"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  tags = var.common_tags
+}
+
+resource "aws_kms_alias" "eks_secrets" {
+  name          = "alias/${var.project_name}-${var.environment}-eks-secrets"
+  target_key_id = aws_kms_key.eks_secrets.key_id
+}
+
 resource "aws_eks_cluster" "this" {
   name     = "${var.project_name}-${var.environment}"
   role_arn = aws_iam_role.cluster.arn
@@ -47,6 +60,13 @@ resource "aws_eks_cluster" "this" {
     "controllerManager",
     "scheduler"
   ]
+
+  encryption_config {
+    provider {
+      key_arn = aws_kms_key.eks_secrets.arn
+    }
+    resources = ["secrets"]
+  }
 
   vpc_config {
     subnet_ids              = var.private_subnet_ids

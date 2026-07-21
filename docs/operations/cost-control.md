@@ -25,12 +25,13 @@ Estimate all of the following for the target region and date:
 | ALB | Load-balancer hours and capacity units | Delete Ingress first |
 | WAF | Web ACL, rules and requests | Disabled by default |
 | CloudWatch | Ingested and retained logs | Seven-day retention |
+| KMS | Two customer-managed keys | State and EKS Secrets encryption |
 | ECR | Stored image data and scanning | Lifecycle and dev force delete |
 | Data transfer | Cross-AZ and Internet egress | Shared NAT can add cross-AZ traffic |
 
 Do not copy an undated dollar estimate into the repository. AWS prices and EKS support status change. Attach a dated AWS Pricing Calculator estimate to each deployment approval.
 
-The previous EKS 1.31 default was removed because it is in extended support and would add an avoidable surcharge. The S3 state bucket is intentionally retained after environment destruction; its storage cost is normally minimal but must remain in the account inventory.
+The previous EKS 1.31 default was removed because it is in extended support and would add an avoidable surcharge. The S3 state bucket and its KMS key are intentionally retained after environment destruction and must remain in the account inventory. Include both customer-managed KMS keys in the dated cost estimate.
 
 ## Budget guardrails for a real account
 

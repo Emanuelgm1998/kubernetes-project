@@ -18,6 +18,8 @@ IRSA roles bind both `sub` and `aud` claims. VPC CNI permissions are removed fro
 
 EKS administration is granted to one explicit IAM role through an Access Entry. Bootstrap creator administration and legacy `aws-auth` management are disabled. Nodes require IMDSv2, use a metadata hop limit of one and have encrypted gp3 root volumes.
 
+Terraform state and Kubernetes Secrets use separate customer-managed KMS keys with automatic rotation. Public subnets do not assign public addresses automatically; Internet-facing load balancers remain managed by ELB.
+
 ## Network controls
 
 - Nodes are private.

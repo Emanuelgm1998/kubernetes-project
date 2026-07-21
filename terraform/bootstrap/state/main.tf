@@ -2,6 +2,21 @@ locals {
   bucket_name = "${var.project_name}-tfstate-${data.aws_caller_identity.current.account_id}-${var.aws_region}"
 }
 
+resource "aws_kms_key" "terraform_state" {
+  description             = "KMS key for ${var.project_name} Terraform state"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_kms_alias" "terraform_state" {
+  name          = "alias/${var.project_name}-terraform-state"
+  target_key_id = aws_kms_key.terraform_state.key_id
+}
+
 resource "aws_s3_bucket" "terraform_state" {
   bucket = local.bucket_name
 
@@ -32,8 +47,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.terraform_state.arn
+      sse_algorithm     = "aws:kms"
     }
+
+    bucket_key_enabled = true
   }
 }
 

@@ -57,3 +57,8 @@ output "vpc_cni_role_arn" {
   description = "IAM role ARN for the VPC CNI add-on."
   value       = module.eks.vpc_cni_role_arn
 }
+
+output "eks_secrets_kms_key_arn" {
+  description = "KMS key ARN used for EKS secret envelope encryption."
+  value       = module.eks.secrets_kms_key_arn
+}

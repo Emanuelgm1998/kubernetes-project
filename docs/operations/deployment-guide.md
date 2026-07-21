@@ -32,7 +32,7 @@ aws iam get-role --role-name "${ADMIN_ROLE_ARN##*/}" --query 'Role.Arn' --output
 
 ## Bootstrap remote state once
 
-This is a separate, explicitly approved apply. It creates only the protected state bucket. Its local state is sensitive and must be backed up securely.
+This is a separate, explicitly approved apply. It creates only the protected state foundation (S3 bucket and KMS key). Its local state is sensitive and must be backed up securely.
 
 ```bash
 terraform -chdir=terraform/bootstrap/state init
@@ -49,9 +49,10 @@ Create the ignored backend configuration using the output:
 ```bash
 cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
 terraform -chdir=terraform/bootstrap/state output -raw state_bucket_name
+terraform -chdir=terraform/bootstrap/state output -raw state_kms_key_arn
 ```
 
-Replace `REPLACE_WITH_TERRAFORM_STATE_BUCKET` in `backend.hcl` with that output.
+Replace both backend placeholders with those outputs.
 
 ## Configure the environment
 

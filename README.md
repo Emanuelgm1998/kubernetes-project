@@ -64,6 +64,8 @@ docs/                          Architecture, security and runbooks
 - IRSA trust policies bound to exact namespace/service-account subjects, including VPC CNI.
 - Explicit EKS Access Entry for an IAM role; implicit creator administration is disabled.
 - IMDSv2-only nodes with a hop limit of one and encrypted gp3 root volumes.
+- Customer-managed KMS keys for Terraform state and EKS Secret envelope encryption.
+- Public subnets do not assign public IP addresses automatically.
 - Scoped Secrets Manager access for External Secrets.
 - Dedicated EBS CSI role and managed add-on integration.
 - ECR scan-on-push, immutable tags and lifecycle policy.

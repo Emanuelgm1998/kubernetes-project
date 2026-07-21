@@ -49,6 +49,8 @@ Runs triggered by the initial hardening commit:
 
 The Security CI failure was not a security finding. Its annotation reported an unresolved action reference because `aquasecurity/trivy-action@0.33.1` omitted the required `v` prefix. The workflow was corrected to the immutable commit SHA for `v0.36.0`.
 
+The next Trivy execution produced three HIGH hardening findings. They were resolved by using customer-managed KMS keys for S3 state and EKS Secret envelope encryption, and by disabling automatic public IP assignment in public subnets. A local Trivy `v0.70.0` rescan with the workflow's `HIGH,CRITICAL` threshold reported zero failures before publication.
+
 ## Deployment boundary
 
 The remote S3 backend does not yet exist. Creating it is the next infrastructure phase and requires separate explicit approval. The real IAM Identity Center role must be identified before setting `ADMIN_ROLE_ARN`; documentation placeholders are not deployable values.
