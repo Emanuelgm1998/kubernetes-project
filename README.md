@@ -34,6 +34,25 @@ The environment was deployed in `us-east-1` and verified on 2026-07-27. Terrafor
 > [!IMPORTANT]
 > This is a hardened **portfolio/dev laboratory**, not a claim of production readiness. The verified completion level is **94%**: demo GitOps reconciliation is blocked by private-repository authentication, and a real secret read is not applicable because the project defines no AWS Secrets Manager test secret.
 
+## Deployment Successfully Validated
+
+> [!TIP]
+> The platform was deployed on AWS and validated from infrastructure provisioning through live Kubernetes runtime checks. Every claim below maps to the version-controlled evidence package.
+
+| Validated outcome | Status | Verification source |
+|---|:---:|---|
+| Amazon EKS cluster Active | ✅ | [AWS deployment evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md#aws-evidence) |
+| Kubernetes v1.35 | ✅ | [Kubernetes evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md#kubernetes-evidence) |
+| 2 managed nodes Ready | ✅ | [Runtime screenshot](docs/images/kubernetes-nodes-ready.png) |
+| Argo CD platform Running | ✅ | [Validation matrix](docs/evidence/VALIDATION_REPORT.md) |
+| External Secrets operator Running | ✅ | [Validation matrix](docs/evidence/VALIDATION_REPORT.md) |
+| Metrics Server Running and serving metrics | ✅ | [Validation matrix](docs/evidence/VALIDATION_REPORT.md) |
+| AWS Load Balancer Controller Running | ✅ | [Functional evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md#functional-evidence) |
+| Terraform apply successful and converged | ✅ | [Terraform evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md#terraform-evidence) |
+| Runtime validation completed | ✅ | [Project completion report](docs/evidence/PROJECT_COMPLETION_REPORT.md) |
+
+The Argo CD platform itself is healthy. Demo-application Git reconciliation remains **PARTIAL** because the private repository has no approved read-only Argo CD credential; the workload was validated from reviewed local manifests. No real secret-read success is claimed because no test secret exists.
+
 ## Architecture
 
 ```mermaid
@@ -112,19 +131,28 @@ The design separates system and application capacity, keeps worker nodes private
 - **Terraform backend:** protected S3 state with versioning, public-access blocking, TLS enforcement, native lockfile support and a customer-managed KMS key.
 - **Registry and observability:** ECR uses immutable tags and scan-on-push; CloudWatch retains EKS control-plane logs for seven days in the dev profile.
 
-## Key capabilities
+## Project Highlights
 
-- Modular Terraform for VPC, EKS, ECR, IAM/IRSA and optional WAF.
-- Multi-AZ network layout with private worker nodes and cost-aware shared egress.
-- Explicit EKS administration through IAM Identity Center and Access Entries.
-- Separate IRSA boundaries for networking, storage, ingress and secret delivery.
-- GitOps bootstrap with restricted Argo CD AppProject permissions.
-- Hardened non-root demo workload with dropped capabilities, RuntimeDefault seccomp and read-only root filesystem.
-- Namespace Pod Security labels and default-deny NetworkPolicies.
-- Horizontal Pod Autoscaler backed by a verified Metrics API.
-- Real DNS, Service, Kubernetes API and internal ALB HTTP 200 tests.
-- Evidence-first operations: CLI outputs, audit matrix, security findings, costs and command history.
-- Controlled destruction workflow that removes Kubernetes-managed AWS resources before Terraform teardown.
+- **Full platform lifecycle:** remote-state bootstrap, reviewed Terraform plan, controlled apply, Kubernetes bootstrap, runtime validation and zero-drift confirmation.
+- **Real AWS runtime:** EKS 1.35, two managed node groups, four managed add-ons, private workers and an internal ALB with 2/2 healthy targets.
+- **Security by design:** IAM Identity Center, EKS Access Entries, KMS encryption, IRSA, IMDSv2, restricted API ingress and hardened pod security contexts.
+- **Platform engineering:** Argo CD, AWS Load Balancer Controller, External Secrets and Metrics Server integrated into a modular cluster foundation.
+- **Functional proof:** DNS, ClusterIP Service, authenticated Kubernetes API and ALB paths returned HTTP 200; live CPU and memory metrics were retrieved.
+- **Auditable delivery:** seven professional reports capture resource inventory, validation results, security posture, costs, architecture and command history.
+- **Operational discipline:** identity guards, saved plans, approval gates and a controlled destruction runbook protect the environment lifecycle.
+
+## Enterprise Features
+
+| Capability | Implementation | Verified value |
+|---|---|---|
+| **IRSA** | Dedicated roles for VPC CNI, EBS CSI, AWS LBC and External Secrets | Pod-level AWS identity without distributing static credentials; External Secrets STS assumption validated |
+| **OIDC federation** | EKS OIDC provider with ServiceAccount-bound trust policies | Identity is scoped to exact Kubernetes subjects |
+| **Least-privilege IAM** | Separate workload roles and scoped secret path | Reduces workload blast radius; broad lab operator access remains documented as a risk |
+| **GitOps** | Argo CD platform and restricted AppProject | Metrics application reconciled Synced/Healthy; private demo repository authentication remains pending |
+| **Multi-AZ design** | Public/private subnets and ALB across two Availability Zones | AZ-aware network foundation; one node per group and one NAT Gateway remain lab constraints |
+| **Terraform remote state** | Versioned S3, SSE-KMS, public-access block, TLS-only policy and native locking | Encrypted, durable and concurrency-aware state management |
+| **CloudWatch observability** | All EKS control-plane log types enabled with seven-day lab retention | Recent API server events and multiple control-plane streams verified |
+| **Modular architecture** | Independent VPC, EKS, ECR, IRSA and security modules | Reviewable components with explicit environment composition |
 
 ## Deployment workflow
 
@@ -145,7 +173,7 @@ flowchart LR
 
 Every apply is preceded by identity validation and review of a saved plan. Terraform state and plan files are never committed.
 
-## Screenshots
+## Runtime Evidence
 
 ### Amazon EKS cluster — Active
 
@@ -153,17 +181,23 @@ Every apply is preceded by identity validation and review of a saved plan. Terra
   <img src="docs/images/eks-cluster-active.png" alt="Amazon EKS cluster kubernetes-platform-dev in Active state" width="92%">
 </p>
 
+This AWS Console capture proves that the deployed `kubernetes-platform-dev` control plane reached the **Active** lifecycle state. It complements the AWS CLI evidence for Kubernetes 1.35 and the configured public/private endpoints.
+
 ### Kubernetes nodes — 2/2 Ready
 
 <p align="center">
   <img src="docs/images/kubernetes-nodes-ready.png" alt="kubectl get nodes showing two Ready private EKS nodes" width="92%">
 </p>
 
+This terminal capture proves that both managed EC2 worker nodes joined the cluster and reported **Ready**. The wide output also supports the validation that the nodes use private addressing with no external IPs.
+
 ### Kubernetes workloads — Running
 
 <p align="center">
   <img src="docs/images/kubernetes-pods-running.png" alt="kubectl get pods across all namespaces showing Running workloads" width="92%">
 </p>
+
+This cluster-wide pod inventory proves the observed runtime state of the EKS add-ons and platform services, including Argo CD, External Secrets, Metrics Server and AWS Load Balancer Controller. At evidence time, all 26 observed pods were Running/Ready.
 
 ## Deployment summary
 
@@ -181,6 +215,21 @@ Every apply is preceded by identity validation and review of a saved plan. Terra
 | External Secrets operator | **PASS** — three deployments Running | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
 | Demo GitOps | **PARTIAL** — workload healthy; private Git repository credential pending | [Completion report](docs/evidence/PROJECT_COMPLETION_REPORT.md) |
 | Real secret value read | **NOT APPLICABLE** — no test secret defined | [Security report](docs/evidence/SECURITY_REPORT.md) |
+
+## Why this project matters
+
+This repository demonstrates more than the ability to provision an EKS cluster. It shows the engineering judgment required to design, secure, operate and audit a cloud-native platform across its full lifecycle.
+
+For Cloud, DevOps, Platform Engineering and Cloud Security roles, the project provides concrete evidence of:
+
+- translating architecture requirements into modular, reviewable infrastructure as code;
+- designing AWS networking, identity, encryption and workload-isolation boundaries together;
+- operating EKS beyond provisioning by integrating controllers, observability, ingress, autoscaling and GitOps;
+- diagnosing real deployment constraints, applying safe corrections and revalidating the result;
+- distinguishing verified success from partial or non-applicable tests instead of overstating readiness;
+- communicating technical outcomes through reproducible evidence, cost analysis, risk documentation and operational runbooks.
+
+The result is intentionally framed as a validated laboratory rather than a production claim. That distinction demonstrates the risk awareness expected from a senior engineer: the repository records both achieved controls and remaining gaps, including single-NAT design, limited node redundancy, HTTP-only internal ingress and pending private-repository authentication.
 
 ## Repository structure
 
