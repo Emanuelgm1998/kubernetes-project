@@ -1,164 +1,344 @@
-# AWS EKS Platform — Terraform, Kubernetes and GitOps
+<p align="center">
+  <img src="docs/images/project-banner.svg" alt="AWS EKS Kubernetes Platform banner" width="100%">
+</p>
 
-Production-oriented reference platform for running Kubernetes on Amazon EKS. The repository demonstrates modular infrastructure as code, private worker networking, workload identity with IRSA, declarative delivery with ArgoCD, security controls, observability foundations and cost-aware operations.
+<p align="center">
+  <strong>A security-focused, multi-AZ Kubernetes platform on Amazon EKS, built with modular Terraform and validated with real runtime evidence.</strong>
+</p>
 
-> Status: validated locally where tooling permits. No AWS infrastructure has been deployed or verified during the current repository hardening phase. Items that require an AWS account are explicitly marked as pending evidence.
+<p align="center">
+  <a href="terraform/environments/dev/provider.tf"><img src="https://img.shields.io/badge/Terraform-1.15-844FBA?logo=terraform&logoColor=white" alt="Terraform 1.15"></a>
+  <a href="https://aws.amazon.com/eks/"><img src="https://img.shields.io/badge/AWS-Amazon_EKS-FF9900?logo=amazonaws&logoColor=white" alt="AWS Amazon EKS"></a>
+  <a href="kubernetes/"><img src="https://img.shields.io/badge/Kubernetes-1.35-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes 1.35"></a>
+  <a href=".github/workflows/terraform-ci.yml"><img src="https://github.com/Emanuelgm1998/kubernetes-project/actions/workflows/terraform-ci.yml/badge.svg" alt="Terraform CI"></a>
+  <a href=".github/workflows/security-ci.yml"><img src="https://img.shields.io/badge/DevSecOps-Trivy_%7C_Gitleaks-0F766E?logo=securityscorecard&logoColor=white" alt="DevSecOps"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Linux-Amazon_Linux_2023-FCC624?logo=linux&logoColor=111827" alt="Linux">
+  <img src="https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white" alt="Infrastructure as Code">
+  <img src="https://img.shields.io/badge/Cloud_Security-KMS_%7C_IRSA_%7C_IMDSv2-DC2626" alt="Cloud Security">
+  <img src="https://img.shields.io/badge/Zero_Trust-Identity--Aware-0EA5E9" alt="Zero Trust">
+  <img src="https://img.shields.io/badge/Runtime_Status-94%25_Verified-16A34A" alt="94 percent verified">
+</p>
+
+---
+
+## Overview
+
+This repository is a portfolio-grade implementation of a short-lived AWS Kubernetes platform. It demonstrates the work expected from a Cloud, DevOps or Platform Engineer: remote state bootstrap, network design, EKS lifecycle, workload identity, GitOps, controller installation, security hardening, functional testing, cost control and auditable evidence.
+
+The environment was deployed in `us-east-1` and verified on 2026-07-27. Terraform converged with **0 add / 0 change / 0 destroy / 0 replace** after deployment. Amazon EKS 1.35, both managed node groups, the four EKS add-ons, the internal ALB and all observed Kubernetes workloads reached healthy runtime states. The infrastructure remains active pending explicitly authorized destruction.
+
+> [!IMPORTANT]
+> This is a hardened **portfolio/dev laboratory**, not a claim of production readiness. The verified completion level is **94%**: demo GitOps reconciliation is blocked by private-repository authentication, and a real secret read is not applicable because the project defines no AWS Secrets Manager test secret.
 
 ## Architecture
 
 ```mermaid
-flowchart LR
-  developer[Operator] --> github[GitHub]
-  github --> ci[GitHub Actions validation]
-  github --> argocd[ArgoCD]
-  terraform[Terraform] --> state[S3 remote state\nversioning and lockfile]
-  terraform --> aws
+flowchart TB
+    Operator["Operator · IAM Identity Center"] -->|"AWSReservedSSO role"| Access["EKS Access Entry"]
+    GitHub["GitHub Repository"] --> CI["GitHub Actions\nTerraform · Platform · Security"]
+    Terraform["Terraform"] --> State["S3 Remote State\nVersioning · Native Lock · SSE-KMS"]
+    Terraform --> AWS
 
-  subgraph aws[AWS account]
-    subgraph vpc[Multi-AZ VPC]
-      public[Public subnets\nALB and NAT]
-      private[Private subnets\nEKS nodes]
-      public --> nat[NAT Gateway]
-      private --> nat
+    subgraph AWS["AWS Account · us-east-1"]
+      direction TB
+      KMS["Customer-managed KMS\nState + EKS Secrets"]
+      ECR["Amazon ECR\nImmutable · Scan on Push"]
+      CW["CloudWatch\nAPI · Audit · Authenticator · Scheduler"]
+
+      subgraph VPC["VPC 10.40.0.0/16 · Two Availability Zones"]
+        direction LR
+        subgraph Public["Public Subnets · 1a / 1b"]
+          IGW["Internet Gateway"]
+          NAT["Shared NAT Gateway"]
+        end
+        subgraph Private["Private Subnets · 1a / 1b"]
+          EKS["Amazon EKS 1.35\nPrivate + restricted public API"]
+          System["System Node Group\nt3.medium · tainted"]
+          Apps["Application Node Group\nt3.medium"]
+        end
+        ALB["Internal Application Load Balancer\n2/2 healthy IP targets"]
+      end
     end
-    eks[Amazon EKS]
-    ecr[Amazon ECR]
-    iam[IAM and IRSA]
-    waf[AWS WAF optional]
-    logs[CloudWatch logs]
-  end
 
-  private --> eks
-  ecr --> eks
-  iam --> eks
-  eks --> logs
-  argocd --> eks
-  eks --> alb[AWS Load Balancer Controller]
-  waf -. optional public association .-> alb
+    Access --> EKS
+    EKS --> System
+    EKS --> Apps
+    EKS --> CW
+    KMS --> State
+    KMS --> EKS
+    ECR --> Apps
+    Private --> NAT --> IGW
+    System --> Argo["Argo CD"]
+    Apps --> LBC["AWS Load Balancer Controller"]
+    Apps --> ESO["External Secrets"]
+    Apps --> Metrics["Metrics Server"]
+    Apps --> Demo["Demo App · 2 replicas"]
+    LBC --> ALB --> Demo
+    GitHub -. "private repo: credential pending" .-> Argo
 ```
 
-The development defaults use EKS 1.35 in standard support, two Availability Zones, private managed node groups, one shared NAT Gateway for cost control, a private EKS API endpoint and an internal ALB. Public access, WAF and higher availability NAT are explicit opt-ins.
+The design separates system and application capacity, keeps worker nodes private, enables both private API access and a public endpoint restricted to the operator's observed `/32`, and uses an internal ALB for the demo workload. See the [architecture report](docs/evidence/ARCHITECTURE_REPORT.md) for the deployed topology and production gaps.
 
-## Repository layout
+## Technology stack
+
+| Layer | Technology | Verified implementation |
+|---|---|---|
+| Cloud | AWS, Amazon EKS 1.35 | Active control plane in `us-east-1` |
+| Infrastructure as Code | Terraform 1.15, AWS provider 5.100 | Modular stacks, remote backend, zero drift |
+| Networking | VPC, 4 subnets, IGW, NAT Gateway, ALB | Two AZs, private nodes, active routes |
+| Compute | EKS managed node groups, Amazon Linux 2023 | 2 × `t3.medium`, both Ready |
+| Identity | IAM Identity Center, IAM, EKS Access Entry | SSO role validated; implicit creator admin disabled |
+| Workload identity | OIDC, IRSA | VPC CNI, EBS CSI, LBC and External Secrets roles |
+| Encryption | AWS KMS, S3 SSE-KMS, encrypted gp3 | Separate rotating keys for state and EKS Secrets |
+| Containers | Kubernetes, Kustomize, Helm | 26/26 observed pods Running/Ready |
+| GitOps | Argo CD 3.4.5 | Platform healthy; Metrics Server Synced/Healthy |
+| Platform services | AWS LBC, External Secrets, Metrics Server, EBS CSI | Deployed and runtime-validated |
+| Observability | CloudWatch control-plane logs, Metrics API | Recent streams/events and live resource metrics |
+| CI/CD security | GitHub Actions, Trivy, Gitleaks | Terraform, manifest and security workflows |
+| Operating system | Linux, Amazon Linux 2023 | IMDSv2-required private worker nodes |
+
+## AWS architecture
+
+- **VPC and routing:** one `10.40.0.0/16` VPC across `us-east-1a` and `us-east-1b`, with two public `/24` subnets, two private `/22` subnets, an Internet Gateway and a shared NAT Gateway.
+- **Amazon EKS:** Kubernetes 1.35 with API, audit, authenticator, controller-manager and scheduler logging. Secrets use KMS envelope encryption.
+- **Managed node groups:** dedicated system and application groups using on-demand `t3.medium` instances, encrypted 30 GiB gp3 volumes, IMDSv2 and no public IPs.
+- **IAM, OIDC and IRSA:** an explicit EKS Access Entry for the SSO role and independent workload roles bound to exact Kubernetes ServiceAccounts.
+- **Ingress:** AWS Load Balancer Controller provisions an internal ALB. Its target group was verified with 2/2 healthy pod IP targets.
+- **Platform services:** EBS CSI, VPC CNI, CoreDNS and kube-proxy are EKS add-ons; Argo CD, External Secrets and Metrics Server are deployed through Helm/GitOps workflows.
+- **Terraform backend:** protected S3 state with versioning, public-access blocking, TLS enforcement, native lockfile support and a customer-managed KMS key.
+- **Registry and observability:** ECR uses immutable tags and scan-on-push; CloudWatch retains EKS control-plane logs for seven days in the dev profile.
+
+## Key capabilities
+
+- Modular Terraform for VPC, EKS, ECR, IAM/IRSA and optional WAF.
+- Multi-AZ network layout with private worker nodes and cost-aware shared egress.
+- Explicit EKS administration through IAM Identity Center and Access Entries.
+- Separate IRSA boundaries for networking, storage, ingress and secret delivery.
+- GitOps bootstrap with restricted Argo CD AppProject permissions.
+- Hardened non-root demo workload with dropped capabilities, RuntimeDefault seccomp and read-only root filesystem.
+- Namespace Pod Security labels and default-deny NetworkPolicies.
+- Horizontal Pod Autoscaler backed by a verified Metrics API.
+- Real DNS, Service, Kubernetes API and internal ALB HTTP 200 tests.
+- Evidence-first operations: CLI outputs, audit matrix, security findings, costs and command history.
+- Controlled destruction workflow that removes Kubernetes-managed AWS resources before Terraform teardown.
+
+## Deployment workflow
+
+```mermaid
+flowchart LR
+    A["SSO identity preflight"] --> B["Bootstrap S3/KMS state"]
+    B --> C["Configure ignored backend.hcl + tfvars"]
+    C --> D["terraform init + validate"]
+    D --> E["Saved terraform plan"]
+    E --> F{"Manual approval"}
+    F -->|Approved| G["terraform apply tfplan"]
+    G --> H["Update kubeconfig"]
+    H --> I["Bootstrap controllers + Argo CD"]
+    I --> J["AWS + Kubernetes validation"]
+    J --> K["Evidence package"]
+    K --> L{"Separate destroy approval"}
+```
+
+Every apply is preceded by identity validation and review of a saved plan. Terraform state and plan files are never committed.
+
+## Screenshots
+
+### Amazon EKS cluster — Active
+
+<p align="center">
+  <img src="docs/images/eks-cluster-active.png" alt="Amazon EKS cluster kubernetes-platform-dev in Active state" width="92%">
+</p>
+
+### Kubernetes nodes — 2/2 Ready
+
+<p align="center">
+  <img src="docs/images/kubernetes-nodes-ready.png" alt="kubectl get nodes showing two Ready private EKS nodes" width="92%">
+</p>
+
+### Kubernetes workloads — Running
+
+<p align="center">
+  <img src="docs/images/kubernetes-pods-running.png" alt="kubectl get pods across all namespaces showing Running workloads" width="92%">
+</p>
+
+## Deployment summary
+
+| Validation | Result | Evidence |
+|---|---|---|
+| Terraform convergence | **PASS** — 0 add, 0 change, 0 destroy, 0 replace | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
+| Amazon EKS | **PASS** — Active, Kubernetes 1.35 | [Deployment evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md) |
+| Managed nodes | **PASS** — 2/2 Ready, no external IPs | [Screenshot](docs/images/kubernetes-nodes-ready.png) |
+| Kubernetes workloads | **PASS** — 26/26 observed pods Running/Ready | [Screenshot](docs/images/kubernetes-pods-running.png) |
+| EKS add-ons | **PASS** — VPC CNI, CoreDNS, kube-proxy, EBS CSI Active | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
+| Internal ALB | **PASS** — active, HTTP 200, 2/2 targets healthy | [Deployment evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md) |
+| CloudWatch | **PASS** — control-plane streams and recent events verified | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
+| IRSA | **PASS** — real STS assumption through External Secrets ServiceAccount | [Security report](docs/evidence/SECURITY_REPORT.md) |
+| Metrics Server | **PASS** — Synced/Healthy; `kubectl top` and HPA operational | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
+| External Secrets operator | **PASS** — three deployments Running | [Validation report](docs/evidence/VALIDATION_REPORT.md) |
+| Demo GitOps | **PARTIAL** — workload healthy; private Git repository credential pending | [Completion report](docs/evidence/PROJECT_COMPLETION_REPORT.md) |
+| Real secret value read | **NOT APPLICABLE** — no test secret defined | [Security report](docs/evidence/SECURITY_REPORT.md) |
+
+## Repository structure
 
 ```text
-terraform/bootstrap/state/     Protected S3 remote-state bootstrap
-terraform/environments/dev/    Environment composition and provider lock
-terraform/modules/             VPC, ECR, EKS, IRSA and WAF modules
-kubernetes/base/               Namespaces and RBAC
-kubernetes/apps/               Application manifests
-kubernetes/security/           Network policies
-kubernetes/kustomization.yaml  Deployable Kustomize entry point
-argocd/applications/            AppProject and Applications
-argocd/bootstrap/              ArgoCD chart values
-helm-values/                   Reviewed component defaults
-.github/workflows/             Terraform, platform and security CI
-scripts/                       Guarded operational workflow
-docs/                          Architecture, security and runbooks
+.
+├── .github/workflows/          # Terraform, platform and security CI
+├── argocd/
+│   ├── applications/           # AppProject and Argo CD Applications
+│   └── bootstrap/              # Hardened Argo CD Helm values
+├── diagrams/                   # Architecture source
+├── docs/
+│   ├── architecture/           # Design and architecture decisions
+│   ├── evidence/               # Seven reports and command evidence
+│   ├── images/                 # README banner and runtime screenshots
+│   ├── operations/             # Deploy, validate and destroy runbooks
+│   └── security/               # Security design
+├── helm-values/                # Reviewed controller defaults
+├── kubernetes/
+│   ├── apps/demo-app/          # Deployment, Service, HPA, PDB and Ingress
+│   ├── base/                   # Namespaces and RBAC
+│   └── security/               # Default-deny and explicit network paths
+├── scripts/                    # Guarded operational automation
+└── terraform/
+    ├── bootstrap/state/        # Protected S3/KMS backend foundation
+    ├── environments/dev/       # Environment composition
+    └── modules/                # VPC, EKS, ECR, IRSA and security modules
 ```
 
-## Implemented controls
+## Requirements
 
-- EKS nodes in private subnets and private API access by default.
-- All EKS control-plane log types with bounded CloudWatch retention.
-- IRSA trust policies bound to exact namespace/service-account subjects, including VPC CNI.
-- Explicit EKS Access Entry for an IAM role; implicit creator administration is disabled.
-- IMDSv2-only nodes with a hop limit of one and encrypted gp3 root volumes.
-- Customer-managed KMS keys for Terraform state and EKS Secret envelope encryption.
-- Public subnets do not assign public IP addresses automatically.
-- Scoped Secrets Manager access for External Secrets.
-- Dedicated EBS CSI role and managed add-on integration.
-- ECR scan-on-push, immutable tags and lifecycle policy.
-- Restricted Pod Security Admission labels for application namespaces.
-- Non-root workload, dropped capabilities, seccomp, read-only root filesystem and no service-account token mount.
-- Default-deny NetworkPolicy, explicit ALB-source ingress and DNS egress.
-- ArgoCD AppProject restrictions, automated self-heal and prune.
-- CI checks for Terraform, YAML, shell, Kustomize, Helm, secrets and IaC security.
+- AWS account access through IAM Identity Center.
+- AWS CLI v2 with profile `kubernetes-project`.
+- Terraform `>= 1.10` and `< 2.0`.
+- kubectl compatible with EKS Kubernetes 1.35.
+- Helm 3, Git, jq, Docker and Kustomize.
+- A trusted public operator IP if using the restricted public EKS endpoint, or an approved private network path.
 
-## Local validation
-
-Required baseline tools are Terraform, kubectl, Helm, Git and jq. Optional local linters are ShellCheck and Yamllint.
+Run the local tool and source validation first:
 
 ```bash
 ./scripts/00-verify-tools.sh
 ./scripts/06-validate-local.sh
 ```
 
-The validation workflow does not run `terraform plan`, contact AWS or create infrastructure. Provider installation during `terraform init -backend=false` requires access to the Terraform Registry unless the providers are already cached.
+## Deployment
 
-## Future AWS validation
+> [!CAUTION]
+> These commands create billable AWS resources. Review the dated cost estimate, confirm the SSO identity and inspect every saved plan before apply.
 
-Before planning, bootstrap the protected state bucket once, create the ignored `backend.hcl`, then create `terraform.tfvars`. Retain the small local bootstrap state securely.
+### 1. Bootstrap remote state
 
 ```bash
+export AWS_PROFILE=kubernetes-project
+export AWS_REGION=us-east-1
+
+./scripts/07-verify-deployment-identity.sh
 terraform -chdir=terraform/bootstrap/state init
 terraform -chdir=terraform/bootstrap/state plan -out=tfplan
-# Apply requires explicit approval.
-
-cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
-cp terraform/environments/dev/terraform.tfvars.example terraform/environments/dev/terraform.tfvars
-./scripts/01-terraform-init-plan.sh
-terraform -chdir=terraform/environments/dev show tfplan
+terraform -chdir=terraform/bootstrap/state apply tfplan  # explicit approval required
 ```
 
-Only after peer review of the saved plan:
+### 2. Configure and deploy EKS
+
+Create ignored `backend.hcl` and `terraform.tfvars` from their examples using the real backend outputs, SSO role ARN and trusted API CIDR. Never commit either file.
 
 ```bash
-./scripts/02-terraform-apply.sh
+./scripts/01-terraform-init-plan.sh
+terraform -chdir=terraform/environments/dev show tfplan
+./scripts/02-terraform-apply.sh                 # explicit approval required
 ./scripts/03-update-kubeconfig.sh
 ./scripts/04-bootstrap-platform.sh
 ```
 
-These commands are documented for a future authorized session. They were not executed as part of local hardening.
+### 3. Validate
 
-## Security boundaries
+```bash
+kubectl cluster-info
+kubectl get nodes -o wide
+kubectl get pods -A
+kubectl get svc -A
+kubectl get ingress -A
+kubectl top nodes
+kubectl top pods -A
+```
 
-- No static AWS or GitHub credentials belong in Git.
-- Prefer AWS IAM Identity Center for operators and GitHub OIDC for future automation.
-- Keep the public EKS endpoint disabled unless trusted `/32` CIDRs are supplied; a private endpoint requires an approved private network path.
-- Public ingress requires a separate reviewed configuration with ACM TLS, HTTPS redirect and WAF association.
-- Terraform plan and state files are ignored because they may contain sensitive values.
+The complete sequencing, approval gates and troubleshooting guidance are in the [deployment guide](docs/operations/deployment-guide.md) and [deployment checklist](docs/operations/deployment-checklist.md).
 
-See [security design](docs/security/security-design.md) and [deployment guide](docs/operations/deployment-guide.md).
+## Validation strategy
 
-## Cost posture
+Validation is layered rather than inferred from a successful apply:
 
-The cluster is intended for short-lived portfolio validation. The main cost drivers are EKS control-plane hours, EC2 nodes, NAT Gateway hours/data, ALB hours/capacity, WAF, EBS and logs. WAF is disabled and Grafana is not installed by default; the dev topology starts with two `t3.medium` nodes total.
+1. **Source:** Terraform formatting/validation, Bash syntax, YAML, Kustomize and Helm rendering.
+2. **Plan:** saved-plan JSON confirms intended actions and absence of replacements/deletes.
+3. **AWS:** VPC routes, EKS status, node groups, add-ons, IAM, OIDC, KMS, ECR, CloudWatch and ELB are queried directly.
+4. **Kubernetes:** nodes, pods, workloads, services, ingress, events and Metrics API are inspected.
+5. **Functional:** in-cluster DNS, ClusterIP Service, authenticated API Server and internal ALB return successful responses.
+6. **Security:** IRSA assumes the expected role through STS; secret access is never claimed without a defined secret fixture.
+7. **Convergence:** a final Terraform plan proves zero drift.
 
-Before deployment, create a dated estimate using AWS Pricing Calculator and verify the selected Kubernetes version is in standard EKS support. EKS 1.35 was confirmed in standard support in `us-east-1` on 2026-07-21. See [cost control](docs/operations/cost-control.md).
+See the component-by-component [audit matrix](docs/evidence/VALIDATION_REPORT.md).
+
+## Security
+
+- **Identity-aware access:** operators use IAM Identity Center; deployment scripts reject the permanent IAM user.
+- **Least-privilege workload access:** IRSA trust policies bind roles to exact namespace and ServiceAccount subjects. The broad operator permission set remains a documented lab risk.
+- **Zero Trust posture:** private nodes, no automatic public IPs, explicit API `/32`, default-deny NetworkPolicies and minimal ingress/egress paths.
+- **Encryption:** separate customer-managed KMS keys protect Terraform state and EKS Secrets; worker volumes are encrypted.
+- **Metadata protection:** IMDSv2 is required with hop limit one.
+- **Supply-chain controls:** ECR uses immutable tags and scan-on-push; CI runs secret and IaC security checks.
+- **Workload hardening:** non-root execution, dropped capabilities, seccomp, read-only root filesystem and no token automount for the demo app.
+- **Auditability:** all EKS control-plane log types are enabled and runtime evidence excludes tokens, state, plans and secret values.
+
+The full threat/control review and remaining risks are documented in the [security report](docs/evidence/SECURITY_REPORT.md).
+
+## Laboratory cost
+
+The dated estimate for the active dev topology is **USD 6.50–8.00/day** or approximately **USD 195–240/month**, depending on NAT data, ALB LCUs, logs and transfer. Primary cost drivers are the EKS control plane, two on-demand `t3.medium` nodes, NAT Gateway, internal ALB, gp3 storage and two customer-managed KMS keys.
+
+Use an AWS Budget, assign a destruction owner and do not leave the laboratory active longer than required. See the [cost report](docs/evidence/COST_REPORT.md) for the breakdown and assumptions.
+
+## Evidence and reports
+
+The complete version-controlled evidence package is available under **[docs/evidence/](docs/evidence/)**.
+
+| Report | Purpose |
+|---|---|
+| [Project Completion Report](docs/evidence/PROJECT_COMPLETION_REPORT.md) | Executive outcome, completion level and pending work |
+| [Deployment Evidence](docs/evidence/DEPLOYMENT_EVIDENCE.md) | Terraform, AWS, Kubernetes and functional proof |
+| [Validation Report](docs/evidence/VALIDATION_REPORT.md) | Auditable PASS/PARTIAL/NOT APPLICABLE/FAIL matrix |
+| [Security Report](docs/evidence/SECURITY_REPORT.md) | Verified controls, findings and secret-test boundary |
+| [Cost Report](docs/evidence/COST_REPORT.md) | Daily/monthly estimate and cost drivers |
+| [Architecture Report](docs/evidence/ARCHITECTURE_REPORT.md) | Deployed topology, availability posture and gaps |
+| [Command Log](docs/evidence/COMMAND_LOG.md) | Sanitized chronological execution record |
+
+Additional evidence: [detailed deployment command log](docs/evidence/2026-07-27-deployment-command-log.md), [hardening publication evidence](docs/evidence/2026-07-21-hardening-publication.md) and [manual screenshot checklist](docs/evidence/DEPLOYMENT_EVIDENCE.md#required-screenshots).
+
+## Roadmap
+
+- [ ] Configure Argo CD private-repository access through a read-only GitHub App or deploy key delivered securely.
+- [ ] Add an approved Secrets Manager fixture, SecretStore and ExternalSecret for a real value-sync test without exposing content.
+- [ ] Replace the public EKS API path with VPN, bastion or another private administration channel.
+- [ ] Add ACM-backed HTTPS and optional WAF association for reviewed public ingress.
+- [ ] Increase NAT and node-group redundancy for production availability.
+- [ ] Add automated AWS Budget alerts, dashboards and longer-term log archival.
+- [ ] Validate PVC provisioning, backup/restore and disaster-recovery procedures.
+- [ ] Replace the broad lab operator permission set with a least-privilege deployment role.
 
 ## Destruction
 
-Kubernetes-managed AWS resources must be removed and verified before Terraform destroys the VPC. ECR is configured for force deletion only in the ephemeral dev environment.
-
-Follow [the destroy runbook](docs/operations/destroy-guide.md); do not treat `terraform destroy` as the first cleanup step.
-
-## Evidence status
-
-| Evidence | Status |
-|---|---|
-| Terraform formatting | Passed locally and in [Terraform CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208263) |
-| Terraform initialization/validation | Passed for bootstrap and dev stacks in [Terraform CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208263) |
-| Kustomize and Helm rendering | Passed locally and in [Platform Manifests CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29826419752) |
-| Secret detection and IaC security | Gitleaks and Trivy passed in [Security CI](https://github.com/Emanuelgm1998/kubernetes-project/actions/runs/29827208177) |
-| AWS Load Balancer Controller policy | Exact normalized match with upstream `v3.4.2` policy |
-| AWS identity and regional compatibility | Verified read-only on 2026-07-21 |
-| Sensitive artifact protection | Ignore rules and Git index verified; no credentials or private keys detected |
-| AWS plan | Pending remote-state bootstrap and separate approval |
-| EKS, nodes, IRSA and add-ons | Pending AWS deployment |
-| ArgoCD sync and ALB | Pending cluster deployment |
-| Destruction/recovery | Pending controlled exercise |
-
-The validated remediation baseline is commit `9b305fb9392120cbe230a574bd34d2865e70908a`. Full commands, findings and run links are recorded in [the hardening publication evidence](docs/evidence/2026-07-21-hardening-publication.md). “Passed” refers to source, render and CI validation; it does not claim runtime AWS evidence before an explicitly approved deployment.
-
-## Interview focus
-
-The key trade-offs are documented rather than hidden: shared NAT versus zonal resilience, private versus public control-plane access, IRSA boundaries, GitOps bootstrap sequencing, optional cost controls and the lifecycle of Kubernetes-created AWS resources. See [interview talking points](docs/interview/talking-points.md).
+The live environment must remain active until explicit authorization. When cleanup is approved, remove Kubernetes-managed load balancers first, then follow the [controlled destruction runbook](docs/operations/destroy-guide.md) and verify that no orphaned resources remain. The protected S3/KMS backend has a separate retention lifecycle.
 
 ## Author
 
-Emanuel González Michea — [LinkedIn](https://www.linkedin.com/in/emanuel-gonzalez-michea/)
+**Emanuel González Michea**<br>
+Cloud & DevOps portfolio project focused on AWS, Infrastructure as Code, Kubernetes, platform engineering and security.
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Emanuel_González_Michea-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/emanuel-gonzalez-michea/)
 
 ## License
 
-This project is available under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE).

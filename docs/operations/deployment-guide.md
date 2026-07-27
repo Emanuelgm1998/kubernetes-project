@@ -12,20 +12,22 @@ This runbook is for a future authorized AWS validation. Local hardening does not
 - Confirm the generated External Secrets boundary matches `<project>/<environment>/*` in the target account.
 - Select an IAM role ARN for `cluster_admin_principal_arn`; IAM user ARNs are rejected.
 
-The audited account did not contain a suitable IAM/Identity Center role on 2026-07-21. Provisioning that operator role is an account-governance prerequisite and is intentionally outside this workload stack. Do not substitute the current IAM user ARN.
+The audited account did not contain an Identity Center user, Permission Set, assignment or suitable role on 2026-07-21. Complete the [IAM Identity Center setup](identity-center-setup.md) first. Do not substitute the current IAM user ARN.
 
-After creating or identifying the real IAM Identity Center role, export its complete ARN on one line. There must be no newline after `role/`:
+After provisioning the assignment, obtain the complete ARN directly from AWS:
 
 ```bash
-export ADMIN_ROLE_ARN="arn:aws:iam::747747309806:role/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
+export ADMIN_ROLE_ARN="$(
+  aws iam list-roles \
+    --query 'Roles[?starts_with(RoleName, `AWSReservedSSO_PlatformAdministrator_`)].Arn | [0]' \
+    --output text
+)"
 ```
 
-`REPLACE_ME` is documentation-only and must be replaced with the real role suffix before planning. Confirm the resolved value:
+Confirm the resolved value:
 
 ```bash
-case "$ADMIN_ROLE_ARN" in
-  *REPLACE_ME*) echo "ADMIN_ROLE_ARN still contains REPLACE_ME" >&2; exit 1 ;;
-esac
+[ -n "$ADMIN_ROLE_ARN" ] && [ "$ADMIN_ROLE_ARN" != "None" ] || exit 1
 printf '%s\n' "$ADMIN_ROLE_ARN"
 aws iam get-role --role-name "${ADMIN_ROLE_ARN##*/}" --query 'Role.Arn' --output text
 ```
@@ -33,6 +35,15 @@ aws iam get-role --role-name "${ADMIN_ROLE_ARN##*/}" --query 'Role.Arn' --output
 ## Bootstrap remote state once
 
 This is a separate, explicitly approved apply. It creates only the protected state foundation (S3 bucket and KMS key). Its local state is sensitive and must be backed up securely.
+
+Verify the SSO identity before every plan or apply:
+
+```bash
+export AWS_PROFILE=kubernetes-project
+export AWS_REGION=us-east-1
+aws sso login --profile "$AWS_PROFILE"
+./scripts/07-verify-deployment-identity.sh
+```
 
 ```bash
 terraform -chdir=terraform/bootstrap/state init
@@ -48,22 +59,33 @@ Create the ignored backend configuration using the output:
 
 ```bash
 cp terraform/environments/dev/backend.hcl.example terraform/environments/dev/backend.hcl
-terraform -chdir=terraform/bootstrap/state output -raw state_bucket_name
-terraform -chdir=terraform/bootstrap/state output -raw state_kms_key_arn
+export STATE_BUCKET="$(terraform -chdir=terraform/bootstrap/state output -raw state_bucket_name)"
+export STATE_KMS_KEY_ARN="$(terraform -chdir=terraform/bootstrap/state output -raw state_kms_key_arn)"
+
+sed -i "s#REPLACE_WITH_TERRAFORM_STATE_BUCKET#$STATE_BUCKET#" \
+  terraform/environments/dev/backend.hcl
+sed -i "s#REPLACE_WITH_TERRAFORM_STATE_KMS_KEY_ARN#$STATE_KMS_KEY_ARN#" \
+  terraform/environments/dev/backend.hcl
 ```
 
-Replace both backend placeholders with those outputs.
+Confirm that `backend.hcl` is ignored and contains no placeholder.
 
 ## Configure the environment
 
 ```bash
 cp terraform/environments/dev/terraform.tfvars.example \
   terraform/environments/dev/terraform.tfvars
+
+sed -i \
+  "s#arn:aws:iam::123456789012:role/AWSReservedSSO_PlatformAdministrator_REPLACE_ME#$ADMIN_ROLE_ARN#" \
+  terraform/environments/dev/terraform.tfvars
 ```
 
 Review the new local file. It is ignored by Git.
 
 Set `cluster_admin_principal_arn` to an existing IAM role. If the API endpoint remains private, run the Kubernetes bootstrap from an approved network path into the VPC. For a short-lived workstation deployment without private connectivity, explicitly enable the public endpoint and restrict it to the operator's public `/32`.
+
+Run the placeholder and ignore checks from the final section of [IAM Identity Center Setup](identity-center-setup.md) before planning.
 
 ## Initialize, validate and save the plan
 
@@ -114,4 +136,4 @@ The bootstrap reads Terraform outputs for VPC and IRSA identifiers. It does not 
 - Ingress is internal unless a separately reviewed public TLS overlay is active.
 - If WAF is enabled, its Web ACL ARN is associated with the public ALB; merely creating an ACL provides no protection.
 
-Record evidence using the checklist in `validation-guide.md` and proceed to destruction within the approved cost window.
+Track execution in the [deployment checklist](deployment-checklist.md), record runtime results with the [evidence template](../evidence/deployment-template.md), and proceed to destruction only after explicit approval.

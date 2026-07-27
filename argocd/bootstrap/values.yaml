@@ -1,3 +1,12 @@
+global:
+  nodeSelector:
+    role: system
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+
 server:
   service:
     type: ClusterIP

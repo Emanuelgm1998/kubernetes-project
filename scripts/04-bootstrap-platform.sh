@@ -4,6 +4,8 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TF_DIR="$REPO_ROOT/terraform/environments/dev"
 
+"$REPO_ROOT/scripts/07-verify-deployment-identity.sh"
+
 AWS_LBC_CHART_VERSION="${AWS_LBC_CHART_VERSION:-3.4.2}"
 EXTERNAL_SECRETS_CHART_VERSION="${EXTERNAL_SECRETS_CHART_VERSION:-2.8.0}"
 ARGOCD_CHART_VERSION="${ARGOCD_CHART_VERSION:-10.1.4}"

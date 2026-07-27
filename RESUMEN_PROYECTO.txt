@@ -1,0 +1,212 @@
+RESUMEN DEL PROYECTO AWS EKS GITOPS
+Actualizado: 2026-07-22
+
+============================================================
+1. LO QUE ESTÁ LISTO
+============================================================
+
+REPOSITORIO Y PUBLICACIÓN
+
+- Repositorio: git@github.com:Emanuelgm1998/kubernetes-project.git
+- Rama publicada: main
+- Último commit publicado: 5466dcce3015b9ea0a036f25db6fd06f6db24187
+- Licencia MIT incluida.
+- Autor y LinkedIn incluidos en README.
+- GitHub Actions de Terraform, Kubernetes/Helm y seguridad aprobados.
+- No se detectaron credenciales, tokens ni claves privadas versionadas.
+
+ARQUITECTURA Y TERRAFORM
+
+- VPC Multi-AZ preparada en us-east-1.
+- Subredes públicas sin asignación automática de IP pública.
+- Nodos EKS en subredes privadas.
+- Un NAT Gateway por defecto para controlar costes de laboratorio.
+- EKS 1.35 configurado.
+- Dos managed node groups: sistema y aplicaciones.
+- IMDSv2 obligatorio y discos gp3 cifrados.
+- Cifrado envelope de Secrets de EKS con KMS.
+- Access Entry explícito para un rol IAM Identity Center.
+- Administración implícita del creador del clúster desactivada.
+- IRSA preparado para VPC CNI, EBS CSI, AWS Load Balancer Controller y External Secrets.
+- ECR con tags inmutables, escaneo y lifecycle.
+- CloudWatch configurado para logs del control plane.
+- WAF disponible como opción y desactivado por defecto.
+
+BACKEND TERRAFORM
+
+- Stack independiente en terraform/bootstrap/state.
+- Bucket S3 de estado con versionado.
+- Cifrado mediante clave KMS administrada por el proyecto.
+- Rotación KMS habilitada.
+- Acceso público bloqueado.
+- Política que exige transporte TLS.
+- Retención de versiones anteriores.
+- Locking nativo de S3 preparado.
+- prevent_destroy habilitado para bucket y clave KMS.
+
+KUBERNETES Y GITOPS
+
+- Argo CD configurado.
+- AWS Load Balancer Controller configurado.
+- External Secrets configurado.
+- Metrics Server configurado para HPA.
+- EBS CSI y VPC CNI como add-ons administrados.
+- Aplicación demo con Deployment, Service, Ingress, HPA y PDB.
+- Workload sin root, sin privilegios, seccomp y filesystem read-only.
+- NetworkPolicy default-deny y egress DNS controlado.
+- Pod Security Admission configurado.
+- RBAC de solo lectura incluido.
+
+VALIDACIONES COMPLETADAS
+
+- terraform fmt: aprobado.
+- terraform init y validate del bootstrap: aprobados.
+- terraform init y validate del entorno dev: aprobados.
+- Kustomize de Kubernetes: aprobado.
+- Kustomize de Argo CD: aprobado.
+- Render Helm de controladores: aprobado.
+- Bash syntax y ShellCheck: aprobados.
+- Gitleaks: aprobado.
+- Trivy: cero hallazgos HIGH/CRITICAL después del hardening.
+- Política IAM del Load Balancer Controller: coincide con upstream v3.4.2.
+- Archivos sensibles correctamente ignorados por Git.
+
+DOCUMENTACIÓN LOCAL PREPARADA
+
+- docs/CURRENT_CONTEXT.md
+- docs/operations/identity-center-setup.md
+- docs/operations/deployment-checklist.md
+- docs/operations/deployment-guide.md
+- docs/operations/destroy-guide.md
+- docs/evidence/deployment-template.md
+- AGENTS.md para cargar automáticamente el contexto al iniciar Codex.
+- scripts/07-verify-deployment-identity.sh para impedir despliegues con el usuario IAM permanente.
+
+============================================================
+2. ESTADO ACTUAL DE AWS
+============================================================
+
+- Cuenta objetivo: 747747309806
+- Región: us-east-1
+- IAM Identity Center: ACTIVE
+- Identity Center Instance ARN:
+  arn:aws:sso:::instance/ssoins-7223b09690b01fbd
+- Identity Store ID: d-906670dd89
+- Usuarios de Identity Center: ninguno
+- Permission Sets: ninguno
+- Account Assignments: ninguno
+- Roles AWSReservedSSO: ninguno
+- Perfil AWS SSO kubernetes-project: no existe todavía
+- Perfil local disponible: default
+- Identidad activa actual: usuario IAM permanente 1998AWS
+
+IMPORTANTE:
+
+El usuario IAM permanente no debe utilizarse para desplegar EKS.
+Los scripts locales están preparados para rechazarlo.
+
+No se ha ejecutado terraform apply.
+No se ha creado el backend S3/KMS.
+No se ha creado VPC, NAT Gateway, EKS, EC2, ALB, ECR ni WAF.
+Actualmente no existen costes nuevos causados por este proyecto.
+
+============================================================
+3. CAMBIOS LOCALES PENDIENTES DE PUBLICAR
+============================================================
+
+Existen cambios locales deliberadamente no publicados:
+
+- AGENTS.md
+- docs/CURRENT_CONTEXT.md
+- docs/operations/identity-center-setup.md
+- docs/operations/deployment-checklist.md
+- docs/evidence/deployment-template.md
+- scripts/07-verify-deployment-identity.sh
+- protecciones SSO añadidas a scripts operativos
+- actualizaciones de README, índice y deployment guide
+- este archivo RESUMEN_PROYECTO.txt
+
+No hacer git commit ni git push sin autorización expresa de Emanuel.
+
+============================================================
+4. LO QUE FALTA
+============================================================
+
+IAM IDENTITY CENTER — MANUAL EN AWS CONSOLE
+
+1. Crear y activar el usuario real de Emanuel en IAM Identity Center.
+2. Configurar MFA para ese usuario.
+3. Crear el Permission Set PlatformAdministrator.
+4. Adjuntar AdministratorAccess para el laboratorio temporal.
+5. Configurar duración de sesión de dos horas.
+6. Asignar usuario y Permission Set a la cuenta 747747309806.
+7. Esperar la creación del rol AWSReservedSSO_PlatformAdministrator_*.
+8. Copiar el AWS access portal URL real desde Identity Center Settings.
+
+AWS CLI SSO
+
+9. Ejecutar aws configure sso.
+10. Crear el perfil exacto kubernetes-project.
+11. Ejecutar aws sso login --profile kubernetes-project.
+12. Validar cuenta, región e identidad asumida.
+13. Obtener el ARN real completo del rol AWSReservedSSO desde AWS.
+
+BACKEND TERRAFORM — REQUIERE APROBACIÓN
+
+14. Generar y revisar terraform plan del bootstrap.
+15. Aprobar explícitamente el apply del backend.
+16. Crear S3/KMS mediante terraform apply.
+17. Obtener outputs state_bucket_name y state_kms_key_arn.
+18. Configurar el archivo local e ignorado backend.hcl.
+
+ENTORNO EKS — REQUIERE SEGUNDA APROBACIÓN
+
+19. Configurar terraform.tfvars con el ARN SSO real.
+20. Definir conectividad al endpoint privado o IP pública /32 temporal.
+21. Generar y revisar terraform plan del entorno dev.
+22. Aprobar explícitamente el apply de EKS.
+23. Desplegar VPC, EKS, nodos, ECR, IAM, IRSA y add-ons.
+24. Actualizar kubeconfig usando el perfil SSO.
+
+GITOPS Y EVIDENCIA
+
+25. Ejecutar el bootstrap de controladores y Argo CD.
+26. Confirmar nodos y add-ons saludables.
+27. Confirmar roles IRSA y ausencia de AccessDenied.
+28. Confirmar Argo CD Synced y Healthy.
+29. Confirmar ALB active y targets healthy.
+30. Ejecutar prueba HTTP y obtener respuesta 200.
+31. Completar docs/evidence/deployment-template.md.
+32. Dejar los recursos activos para recopilar evidencia.
+
+DESTRUCCIÓN — SOLO CON AUTORIZACIÓN POSTERIOR
+
+33. No destruir nada hasta que Emanuel diga:
+    "Autoriza la destrucción controlada."
+34. Eliminar primero recursos administrados por Kubernetes.
+35. Revisar y aprobar el destroy plan.
+36. Destruir el entorno de forma ordenada.
+37. Verificar que no queden recursos huérfanos ni costes inesperados.
+
+============================================================
+5. ÚNICOS VALORES QUE DEBEN REEMPLAZARSE
+============================================================
+
+1. ARN real del rol AWSReservedSSO_PlatformAdministrator_*.
+2. Nombre real del bucket S3 del backend.
+3. ARN real de la clave KMS del backend.
+
+No inventar estos valores y no utilizar REPLACE_ME durante el despliegue.
+
+============================================================
+6. AUTORIZACIÓN PARA CONTINUAR
+============================================================
+
+Después de configurar Identity Center y el perfil SSO, utilizar:
+
+"IAM Identity Center y el perfil kubernetes-project están configurados.
+Te autorizo a crear el backend S3/KMS, desplegar EKS y GitOps,
+ejecutar las pruebas end-to-end y registrar evidencia.
+Deja los recursos activos y no ejecutes destroy."
+
+El despliegue debe continuar por etapas, revisando cada plan antes de apply.
